@@ -2,9 +2,14 @@
 // never shifts by a day because of the viewer's time zone.
 
 export function parseDueDate(s: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}.*)?$/.exec(s);
+  if (!m) return null;
+  const d = new Date(0);
+  d.setFullYear(+m[1], +m[2] - 1, +m[3]);
+  d.setHours(0, 0, 0, 0);
+  if (d.getFullYear() !== +m[1] || d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[3]) return null;
+  if (s.includes("T") && Number.isNaN(Date.parse(s))) return null;
+  return d;
 }
 
 export function daysUntil(s: string, now = new Date()): number | null {

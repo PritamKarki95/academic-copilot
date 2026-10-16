@@ -1,6 +1,7 @@
 "use client";
 
-import { CalendarClock, ListChecks, NotebookPen, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { Courses, DashboardShell, EmptyState, Overview, VIEWS, type Activity, type View } from "@/components/Dashboard";
 import { useEffect, useRef, useState } from "react";
 import { AGENT_STEPS, AgentSection, type AgentPhase } from "@/components/AgentSection";
 import { DeadlinesSection } from "@/components/DeadlinesSection";
@@ -8,7 +9,8 @@ import { Header } from "@/components/Header";
 import { QuizSection } from "@/components/QuizSection";
 import { StudyGuideSection } from "@/components/StudyGuideSection";
 import { UploadSection } from "@/components/UploadSection";
-import { ApiError, generateQuiz, runAgent, uploadDocuments } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { academicService } from "@/lib/service";
 import { daysUntil } from "@/lib/dates";
 import { DEMO_AGENT_RESULT, DEMO_FILE_NAMES, demoUploadResult } from "@/lib/demo-data";
 import type { Quiz, StudyGuide, UploadResult } from "@/lib/types";
@@ -18,8 +20,6 @@ const DEMO_MODE_DEFAULT = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 type UiError = { message: string; detail?: string };
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 function toUiError(err: unknown): UiError {
   if (err instanceof ApiError) return { message: err.message, detail: err.detail };
   return { message: "Something went wrong.", detail: err instanceof Error ? err.message : String(err) };
@@ -27,12 +27,40 @@ function toUiError(err: unknown): UiError {
 
 export default function Home() {
   const [demoMode, setDemoMode] = useState(DEMO_MODE_DEFAULT);
+  const [view, setView] = useState<View>("overview");
+  const [courseFilter, setCourseFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [readCount, setReadCount] = useState(0);
+  const activityId = useRef(0);
+
+  function navigate(next: View) {
+    setView(next);
+    window.location.hash = next;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function record(message: string) {
+    const activity = { id: ++activityId.current, message, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    setActivities(a => [activity, ...a].slice(0, 20));
+  }
+
+  useEffect(() => {
+    function syncView() {
+      const target = window.location.hash.slice(1);
+      if (VIEWS.some(v => v.id === target)) setView(target as View);
+    }
+    syncView();
+    window.addEventListener("hashchange", syncView);
+    return () => window.removeEventListener("hashchange", syncView);
+  }, []);
 
   // Step 1 — upload
   const [files, setFiles] = useState<File[]>([]);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "loading" | "done">("idle");
   const [uploadError, setUploadError] = useState<UiError | null>(null);
-  const [upload, setUpload] = useState<UploadResult | null>(null);
+  const [upload, setUpload] = useState<UploadResult | null>(() => DEMO_MODE_DEFAULT ? demoUploadResult() : null);
 
   // Step 3 — agent
   const [agentPhase, setAgentPhase] = useState<AgentPhase>("idle");
@@ -41,8 +69,8 @@ export default function Home() {
   const [agentError, setAgentError] = useState<UiError | null>(null);
 
   // Steps 4–5 — results
-  const [guide, setGuide] = useState<StudyGuide | null>(null);
-  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [guide, setGuide] = useState<StudyGuide | null>(DEMO_MODE_DEFAULT ? DEMO_AGENT_RESULT.studyGuide : null);
+  const [quiz, setQuiz] = useState<Quiz | null>(DEMO_MODE_DEFAULT ? DEMO_AGENT_RESULT.quiz : null);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizError, setQuizError] = useState<UiError | null>(null);
 
@@ -57,17 +85,7 @@ export default function Home() {
   const quizRef = useRef<HTMLElement>(null);
 
   const busy = uploadStatus === "loading" || agentPhase === "running" || quizLoading;
-
-  // Smoothly bring each newly revealed section into view.
-  useEffect(() => {
-    if (upload) deadlinesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [upload]);
-  useEffect(() => {
-    if (agentPhase === "running") agentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [agentPhase]);
-  useEffect(() => {
-    if (guide) guideRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [guide]);
+  const service = academicService(demoMode);
 
   useEffect(() => () => stopStepTimer(), []);
 
@@ -81,19 +99,25 @@ export default function Home() {
     setActiveStep(i);
   }
 
-  function resetAll() {
+  function resetAll(demo = demoMode) {
     runId.current++;
     stopStepTimer();
     setFiles([]);
     setUploadStatus("idle");
     setUploadError(null);
-    setUpload(null);
+    setUpload(demo ? demoUploadResult() : null);
     setAgentPhase("idle");
     setStep(0);
     setFailedStep(null);
     setAgentError(null);
-    setGuide(null);
-    setQuiz(null);
+    setGuide(demo ? DEMO_AGENT_RESULT.studyGuide : null);
+    setQuiz(demo ? DEMO_AGENT_RESULT.quiz : null);
+    setActivities([]);
+    setReadCount(0);
+    setCourseFilter("all");
+    setTypeFilter("all");
+    setDateFilter("all");
+    navigate("overview");
     setQuizLoading(false);
     setQuizError(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -101,27 +125,26 @@ export default function Home() {
 
   function changeMode(demo: boolean) {
     if (demo === demoMode) return;
-    resetAll();
+    resetAll(demo);
     setDemoMode(demo);
   }
 
   // ── Step 1: upload & extract deadlines ──────────────────────────────────
   async function handleAnalyze() {
+    if (busy) return;
     const id = ++runId.current;
     setUploadStatus("loading");
     setUploadError(null);
     try {
-      let result: UploadResult;
-      if (demoMode) {
-        await sleep(1600);
-        result = demoUploadResult();
-      } else {
-        if (!files.length) throw new ApiError("Please add at least one PDF.");
-        result = await uploadDocuments(files);
-      }
+      if (!demoMode && !files.length) throw new ApiError("Please add at least one PDF.");
+      const result = await service.uploadDocuments(files);
       if (id !== runId.current) return;
       setUpload(result);
       setUploadStatus("done");
+      setGuide(null);
+      setQuiz(null);
+      setAgentPhase("idle");
+      record((demoMode ? "Demo: loaded " : "Extracted ") + result.events.length + (demoMode ? " deadlines from sample data." : " deadlines from uploaded documents."));
     } catch (err) {
       if (id !== runId.current) return;
       setUploadError(toUiError(err));
@@ -131,7 +154,7 @@ export default function Home() {
 
   // ── Step 3: run the agent (study guide + quiz) ──────────────────────────
   async function handleRunAgent() {
-    if (!upload) return;
+    if (!upload || busy) return;
     const id = ++runId.current;
     setAgentPhase("running");
     setAgentError(null);
@@ -152,17 +175,7 @@ export default function Home() {
     );
 
     try {
-      if (demoMode) {
-        await sleep(AGENT_STEPS.length * 1100 + 400);
-        if (id !== runId.current) return;
-        stopStepTimer();
-        setGuide(DEMO_AGENT_RESULT.studyGuide);
-        setQuiz(DEMO_AGENT_RESULT.quiz);
-        setAgentPhase("done");
-        return;
-      }
-
-      const result = await runAgent({ sessionId: upload.sessionId, events: upload.events });
+      const result = await service.runAgent({ sessionId: upload.sessionId, events: upload.events });
       if (id !== runId.current) return;
 
       if (result.quiz) {
@@ -170,13 +183,14 @@ export default function Home() {
         setGuide(result.studyGuide);
         setQuiz(result.quiz);
         setAgentPhase("done");
+        record(demoMode ? "Demo: simulated study guide and quiz are ready." : "Study guide and quiz received from the backend.");
         return;
       }
 
       // Guide arrived without a quiz → request it separately.
       setStep(AGENT_STEPS.length - 1);
       try {
-        const q = await generateQuiz({ sessionId: upload.sessionId, events: upload.events, studyGuide: result.studyGuide });
+        const q = await service.generateQuiz({ sessionId: upload.sessionId, events: upload.events, studyGuide: result.studyGuide });
         if (id !== runId.current) return;
         setQuiz(q);
       } catch (err) {
@@ -187,12 +201,14 @@ export default function Home() {
       stopStepTimer();
       setGuide(result.studyGuide);
       setAgentPhase("done");
+      record("Study guide received from the backend.");
     } catch (err) {
       if (id !== runId.current) return;
       stopStepTimer();
-      setFailedStep(activeStepRef.current);
+      setFailedStep(null);
       setAgentError(toUiError(err));
       setAgentPhase("error");
+      record("Agent request failed. Retry is available.");
     }
   }
 
@@ -202,10 +218,11 @@ export default function Home() {
     setQuizLoading(true);
     setQuizError(null);
     try {
-      const q = await generateQuiz({ sessionId: upload.sessionId, events: upload.events, studyGuide: guide });
+      const q = await service.generateQuiz({ sessionId: upload.sessionId, events: upload.events, studyGuide: guide });
       if (id !== runId.current) return;
       setQuiz(q);
       setFailedStep(null);
+      record("Practice quiz received from the backend.");
     } catch (err) {
       if (id !== runId.current) return;
       setQuizError(toUiError(err));
@@ -214,80 +231,56 @@ export default function Home() {
     }
   }
 
-  const nextExam = upload?.events.find((e) => e.type === "exam" && (daysUntil(e.dueDate) ?? 0) >= 0);
-  const showQuiz = agentPhase === "done" && (quiz || quizError || quizLoading);
+  const events = upload?.events ?? [];
+  const nextExam = events.find(e => e.type === "exam" && (daysUntil(e.dueDate) ?? -1) >= 0);
+  const filteredEvents = events.filter(e => {
+    const days = daysUntil(e.dueDate);
+    return (courseFilter === "all" || e.course === courseFilter)
+      && (typeFilter === "all" || e.type === typeFilter)
+      && (dateFilter === "all" || (dateFilter === "upcoming" ? days !== null && days >= 0 : days !== null && days < 0));
+  });
+  const alerts = events.filter(e => { const d = daysUntil(e.dueDate); return d !== null && d >= 0 && d <= 7; })
+    .map(e => e.title + " (" + e.course + ") is due " + e.dueDate + ".");
+  const notifications = [...activities.map(a => a.message), ...alerts];
+  const canRun = !!events.length && !busy;
+  const heading = {
+    overview: ["Your next chapter, organized.", "Less time tracking deadlines. More time understanding what matters."],
+    courses: ["Your courses", "One home for every course, exam, and assignment."],
+    deadlines: ["Every deadline. A little more clarity.", "See what's coming and choose where to focus."],
+    guides: ["Make your next study session count.", "Focused guides built from your course materials."],
+    quizzes: ["Turn understanding into confidence.", "Practice your material, check your answers, and try again."],
+  }[view];
 
-  return (
-    <div className="min-h-screen">
-      <Header
-        demoMode={demoMode}
-        onModeChange={changeMode}
-        canReset={uploadStatus !== "idle" || files.length > 0 || !!upload}
-        onReset={resetAll}
-        busy={busy}
-      />
+  const runner = upload && events.length > 0 ? <AgentSection ref={agentRef} phase={agentPhase} activeStep={activeStep} failedStep={failedStep} error={agentError} demoMode={demoMode} focusLabel={nextExam?.title} onRun={handleRunAgent} /> : null;
 
-      <main className="mx-auto max-w-5xl px-4 pb-24 pt-10 sm:px-6 sm:pt-14">
-        <div className="animate-fade-up mb-10 text-center">
-          <p className="mx-auto mb-4 inline-flex items-center gap-1.5 rounded-full border border-indigo-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-indigo-700 shadow-sm">
-            <Sparkles className="size-3.5" />
-            Agentic AI for students
-          </p>
-          <h1 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-zinc-900 sm:text-[42px] sm:leading-[1.1]">
-            From syllabus to study plan,{" "}
-            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">automatically.</span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-[15px] text-zinc-500">
-            Upload your course documents. Academic Copilot finds every deadline, then builds a study guide and practice quiz
-            for your next exam.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs text-zinc-600">
-            {[
-              { icon: CalendarClock, label: "Deadlines" },
-              { icon: NotebookPen, label: "Study guides" },
-              { icon: ListChecks, label: "Practice quizzes" },
-            ].map(({ icon: Icon, label }) => (
-              <span key={label} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 ring-1 ring-zinc-200">
-                <Icon className="size-3.5 text-violet-500" />
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
+  return <DashboardShell view={view} navigate={navigate} demoMode={demoMode} busy={busy} canRun={canRun} onRun={() => { navigate("overview"); void handleRunAgent(); }} notifications={notifications} unread={(activities[0]?.id ?? 0) + alerts.length > readCount} onRead={() => setReadCount((activities[0]?.id ?? 0) + alerts.length)}
+    header={<Header demoMode={demoMode} onModeChange={changeMode} canReset={uploadStatus !== "idle" || files.length > 0 || !!upload} onReset={() => resetAll()} busy={busy} />}>
+    <div className="animate-fade-up"><p className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-600"><Sparkles className="size-3" /> Your academic copilot</p><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{heading[0]}</h1><p className="mt-2 text-sm text-zinc-500">{heading[1]}</p></div>
 
-        <div className="space-y-6">
-          <UploadSection
-            files={files}
-            onFilesChange={setFiles}
-            demoMode={demoMode}
-            status={uploadStatus}
-            error={uploadError}
-            onAnalyze={handleAnalyze}
-            demoFileNames={DEMO_FILE_NAMES}
-          />
+    {view === "overview" && <>
+      <Overview events={events} guide={guide} activities={activities} demoMode={demoMode} canRun={canRun} onRun={handleRunAgent} onDeadlines={() => navigate("deadlines")} />
+      <UploadSection disabled={busy} key={String(demoMode)} files={files} onFilesChange={setFiles} demoMode={demoMode} status={uploadStatus} error={uploadError} onAnalyze={handleAnalyze} demoFileNames={DEMO_FILE_NAMES} />
+      {runner}
+      {guide && agentPhase === "done" && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-5" role="status"><p className="text-sm font-medium text-emerald-800">Your study guide is ready{quiz ? ", along with your practice quiz" : ""}.</p><button onClick={() => navigate("guides")} className="text-sm font-semibold text-indigo-700">Open study guide →</button></div>}
+    </>}
 
-          {upload && <DeadlinesSection ref={deadlinesRef} events={upload.events} demoMode={demoMode} />}
+    {view === "courses" && <Courses events={events} onSelect={course => { setCourseFilter(course); setTypeFilter("all"); setDateFilter("all"); navigate("deadlines"); }} />}
 
-          {upload && upload.events.length > 0 && (
-            <AgentSection
-              ref={agentRef}
-              phase={agentPhase}
-              activeStep={activeStep}
-              failedStep={failedStep}
-              error={agentError}
-              demoMode={demoMode}
-              focusLabel={nextExam?.title}
-              onRun={handleRunAgent}
-            />
-          )}
+    {view === "deadlines" && <>
+      <div className="glass-panel glass-filters flex flex-wrap gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+        <label className="flex flex-1 flex-col gap-1.5 text-xs font-medium text-zinc-500">Course<select className="min-w-40 rounded-lg border border-zinc-200 bg-white p-2 text-sm text-zinc-800" value={courseFilter} onChange={e => setCourseFilter(e.target.value)}><option value="all">All courses</option>{[...new Set(events.map(e => e.course))].map(c => <option key={c}>{c}</option>)}</select></label>
+        <label className="flex flex-1 flex-col gap-1.5 text-xs font-medium text-zinc-500">Event type<select className="min-w-36 rounded-lg border border-zinc-200 bg-white p-2 text-sm capitalize text-zinc-800" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="all">All types</option>{["exam", "assignment", "presentation", "quiz", "project", "other"].map(t => <option key={t}>{t}</option>)}</select></label>
+        <label className="flex flex-1 flex-col gap-1.5 text-xs font-medium text-zinc-500">Due date<select className="min-w-36 rounded-lg border border-zinc-200 bg-white p-2 text-sm text-zinc-800" value={dateFilter} onChange={e => setDateFilter(e.target.value)}><option value="all">All dates</option><option value="upcoming">Upcoming</option><option value="overdue">Past due</option></select></label>
+        <button className="self-end rounded-lg px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50" onClick={() => { setCourseFilter("all"); setTypeFilter("all"); setDateFilter("all"); }}>Clear filters</button>
+      </div>
+      {filteredEvents.length ? <DeadlinesSection ref={deadlinesRef} events={filteredEvents} demoMode={demoMode} /> : <EmptyState title={events.length ? "No deadlines match these filters" : "No deadlines yet"} description={events.length ? "Try a different course, event type, or date range." : "Upload your syllabus in Overview, or switch to Demo to explore sample deadlines."} />}
+    </>}
 
-          {guide && agentPhase === "done" && <StudyGuideSection ref={guideRef} guide={guide} demoMode={demoMode} />}
+    {view === "guides" && (guide ? <><StudyGuideSection ref={guideRef} guide={guide} demoMode={demoMode} /><button onClick={() => navigate("quizzes")} className="glass-primary rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700">Practice this material →</button></> : <><EmptyState title="Your study guide starts here" description="Upload a syllabus and notes, then run the agent from Overview to prepare your materials." />{runner}</>)}
 
-          {showQuiz && (
-            <QuizSection ref={quizRef} quiz={quiz} loading={quizLoading} error={quizError} onRetry={retryQuiz} demoMode={demoMode} />
-          )}
-        </div>
-      </main>
+    <div hidden={view !== "quizzes"}>
+      {quiz || quizError || quizLoading ? <QuizSection ref={quizRef} quiz={quiz} loading={quizLoading} error={quizError} onRetry={retryQuiz} demoMode={demoMode} /> : <EmptyState title="A little practice goes a long way" description="Run the agent after uploading your materials to generate a practice quiz." />}
     </div>
-  );
+    <p className="sr-only" role="status">{activities[0]?.message}</p>
+  </DashboardShell>;
 }

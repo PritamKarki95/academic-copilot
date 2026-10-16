@@ -1,7 +1,7 @@
 // Shared frontend types. The API adapter (src/lib/api.ts) maps whatever the
 // backend returns into these shapes, so components never see raw responses.
 
-export type EventType = "exam" | "assignment" | "quiz" | "project" | "other";
+export type EventType = "exam" | "assignment" | "quiz" | "project" | "presentation" | "other";
 
 export interface AcademicEvent {
   id: string;
@@ -31,6 +31,8 @@ export interface KeyTerm {
 }
 
 export interface StudyGuide {
+  content?: string;
+  examDate?: string;
   title: string;
   course?: string;
   focus?: string;

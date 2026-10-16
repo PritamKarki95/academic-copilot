@@ -12,16 +12,17 @@ interface Props {
   error: { message: string; detail?: string } | null;
   onAnalyze: () => void;
   demoFileNames: string[];
+  disabled?: boolean;
 }
 
-export function UploadSection({ files, onFilesChange, demoMode, status, error, onAnalyze, demoFileNames }: Props) {
+export function UploadSection({ files, onFilesChange, demoMode, status, error, onAnalyze, demoFileNames, disabled = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [rejected, setRejected] = useState<string[]>([]);
-  const locked = status !== "idle";
+  const locked = status !== "idle" || disabled;
 
   function addFiles(list: FileList | null) {
-    if (!list) return;
+    if (!list || locked) return;
     const incoming = Array.from(list);
     const pdfs = incoming.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
     setRejected(incoming.filter((f) => !pdfs.includes(f)).map((f) => f.name));
@@ -44,7 +45,7 @@ export function UploadSection({ files, onFilesChange, demoMode, status, error, o
         status === "done" ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
             <CircleCheck className="size-3.5" />
-            {shownNames.length} document{shownNames.length === 1 ? "" : "s"} processed
+            {demoMode ? "Sample data loaded" : `${shownNames.length} document${shownNames.length === 1 ? "" : "s"} processed`}
           </span>
         ) : null
       }
@@ -62,11 +63,11 @@ export function UploadSection({ files, onFilesChange, demoMode, status, error, o
             addFiles(e.dataTransfer.files);
           }}
           onClick={() => inputRef.current?.click()}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && inputRef.current?.click()}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
           role="button"
           tabIndex={0}
           className={cx(
-            "group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition",
+            "glass-dropzone group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition",
             dragging
               ? "border-indigo-400 bg-indigo-50/70"
               : "border-zinc-200 bg-zinc-50/50 hover:border-indigo-300 hover:bg-indigo-50/40",
@@ -102,7 +103,7 @@ export function UploadSection({ files, onFilesChange, demoMode, status, error, o
           {shownNames.map((name, i) => (
             <li
               key={name + i}
-              className="animate-fade-up flex min-w-0 items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5"
+              className="glass-inset animate-fade-up flex min-w-0 items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5"
             >
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-500 ring-1 ring-rose-100">
                 <FileText className="size-4" />
@@ -132,7 +133,7 @@ export function UploadSection({ files, onFilesChange, demoMode, status, error, o
         <div className="mt-5" aria-live="polite">
           <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-700">
             <LoaderCircle className="size-4 animate-spin text-indigo-500" />
-            Reading documents and extracting deadlines…
+            {demoMode ? "Loading sample deadlines (simulation)…" : "Reading documents and extracting deadlines…"}
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
             <div className="shimmer-bar h-full w-full animate-shimmer rounded-full" />
@@ -146,11 +147,12 @@ export function UploadSection({ files, onFilesChange, demoMode, status, error, o
         </div>
       )}
 
-      {status === "idle" && (
+      {disabled && status === "idle" && <p className="mt-3 text-xs text-zinc-500">Upload will be available when the current request finishes.</p>}
+      {status === "idle" && !disabled && (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-zinc-500">
-            {usingSampleFiles
-              ? "Demo mode: sample documents will be used."
+            {demoMode
+              ? "Demo mode: loads sample data; selected PDFs are not processed."
               : files.length
                 ? `${files.length} file${files.length === 1 ? "" : "s"} ready to analyze`
                 : "Add at least one PDF to continue."}

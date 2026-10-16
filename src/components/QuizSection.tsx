@@ -3,6 +3,7 @@
 import { CircleCheck, CircleX, ListChecks, LoaderCircle, RotateCcw, Trophy } from "lucide-react";
 import { forwardRef, useState } from "react";
 import type { Quiz } from "@/lib/types";
+import { quizScore } from "@/lib/quiz";
 import { cx, ErrorBanner, primaryButton, SampleBadge, secondaryButton, Section } from "./ui";
 
 interface Props {
@@ -35,7 +36,7 @@ export const QuizSection = forwardRef<HTMLElement, Props>(function QuizSection(
         </div>
       )}
       {error && <ErrorBanner message={error.message} detail={error.detail} onRetry={onRetry} />}
-      {quiz && <QuizBody key={quiz.questions.map((q) => q.id).join("|")} quiz={quiz} />}
+      {quiz && <QuizBody key={JSON.stringify(quiz)} quiz={quiz} />}
     </Section>
   );
 });
@@ -43,15 +44,14 @@ export const QuizSection = forwardRef<HTMLElement, Props>(function QuizSection(
 function QuizBody({ quiz }: { quiz: Quiz }) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [current, setCurrent] = useState(0);
 
-  const total = quiz.questions.length;
-  const answered = Object.keys(answers).length;
-  const score = quiz.questions.filter((q) => answers[q.id] === q.correctIndex).length;
-  const pct = Math.round((score / total) * 100);
+  const { total, answered, score, percent: pct } = quizScore(quiz, answers);
 
   function retake() {
     setAnswers({});
     setSubmitted(false);
+    setCurrent(0);
   }
 
   return (
@@ -74,6 +74,7 @@ function QuizBody({ quiz }: { quiz: Quiz }) {
 
       <ol className="space-y-4">
         {quiz.questions.map((q, qi) => {
+          if (!submitted && qi !== current) return null;
           const picked = answers[q.id];
           const correct = picked === q.correctIndex;
           return (
@@ -98,15 +99,14 @@ function QuizBody({ quiz }: { quiz: Quiz }) {
                   ))}
               </div>
 
-              <div role="radiogroup" aria-label={`Question ${qi + 1}`} className="mt-3 grid gap-2 sm:grid-cols-2 sm:pl-9">
+              <div role="group" aria-label={`Question ${qi + 1}`} className="mt-3 grid gap-2 sm:grid-cols-2 sm:pl-9">
                 {q.options.map((opt, oi) => {
                   const isPicked = picked === oi;
                   const isRight = oi === q.correctIndex;
                   return (
                     <button
                       key={oi}
-                      role="radio"
-                      aria-checked={isPicked}
+                      aria-pressed={isPicked}
                       disabled={submitted}
                       onClick={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
                       className={cx(
@@ -151,6 +151,13 @@ function QuizBody({ quiz }: { quiz: Quiz }) {
         })}
       </ol>
 
+      {!submitted && (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button className={secondaryButton} disabled={current === 0} onClick={() => setCurrent(i => i - 1)}>Previous</button>
+          <p className="text-xs text-zinc-500" aria-live="polite">Question {current + 1} of {total}</p>
+          <button className={secondaryButton} disabled={current === total - 1} onClick={() => setCurrent(i => i + 1)}>Next</button>
+        </div>
+      )}
       {!submitted && (
         <div className="mt-5 flex items-center justify-end gap-3">
           {answered < total && <p className="text-xs text-zinc-500">Answer every question to submit.</p>}

@@ -12,10 +12,10 @@ interface Props {
 
 export function Header({ demoMode, onModeChange, canReset, onReset, busy }: Props) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-200/70 bg-white/75 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <header className="glass-header sticky top-0 z-20 border-b border-zinc-200/70 bg-white/75 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-[0_4px_12px_-4px_rgba(99,102,241,0.8)]">
+          <div className="glass-icon flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-[0_4px_12px_-4px_rgba(99,102,241,0.8)]">
             <GraduationCap className="size-[18px]" />
           </div>
           <div className="leading-tight">
@@ -36,9 +36,9 @@ export function Header({ demoMode, onModeChange, canReset, onReset, busy }: Prop
             </button>
           )}
           <div
-            role="radiogroup"
+            role="group"
             aria-label="Data source"
-            className="flex rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 text-xs font-medium"
+            className="glass-segment flex rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 text-xs font-medium"
           >
             <ModeButton active={!demoMode} disabled={busy} onClick={() => onModeChange(false)}>
               <span className={cx("size-1.5 rounded-full", !demoMode ? "bg-emerald-500" : "bg-zinc-400")} />
@@ -53,12 +53,12 @@ export function Header({ demoMode, onModeChange, canReset, onReset, busy }: Prop
       </div>
 
       {demoMode ? (
-        <div className="border-t border-amber-200/70 bg-amber-50/90 px-4 py-1.5 text-center text-xs font-medium text-amber-800">
+        <div className="border-t border-amber-200/50 bg-amber-50/60 px-4 py-1.5 text-center text-xs font-medium text-amber-800">
           DEMO MODE — showing built-in sample data. No backend is called.
         </div>
       ) : (
-        <div className="border-t border-zinc-100 bg-white/60 px-4 py-1.5 text-center text-xs text-zinc-500">
-          Live mode — connected to <span className="font-mono text-zinc-700">{API_CONFIG.baseUrl}</span>
+        <div className="border-t border-white/60 bg-white/20 px-4 py-1.5 text-center text-xs text-zinc-500">
+          Live mode — API target: <span className="font-mono text-zinc-700">{API_CONFIG.baseUrl}</span>
         </div>
       )}
     </header>
@@ -78,8 +78,7 @@ function ModeButton({
 }) {
   return (
     <button
-      role="radio"
-      aria-checked={active}
+      aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
       className={cx(

@@ -2,7 +2,7 @@
 // never as a fallback for a failed real request.
 
 import { isoDaysFromToday } from "./dates";
-import type { AgentResult, UploadResult } from "./types";
+import type { AcademicEvent, AgentResult, UploadResult } from "./types";
 
 export const DEMO_FILE_NAMES = ["CS201_Syllabus_Fall2026.pdf", "Lecture_07-09_Hashing_Trees_Heaps.pdf"];
 
@@ -12,13 +12,18 @@ export function demoUploadResult(): UploadResult {
   // Dates are relative to today so "days remaining" always looks right on stage.
   return {
     sessionId: "demo-session",
-    events: [
-      { id: "e1", course: COURSE, title: "Problem Set 3: Hash Tables", type: "assignment", dueDate: isoDaysFromToday(4), weight: "5%", sourceFile: DEMO_FILE_NAMES[0] },
-      { id: "e2", course: COURSE, title: "Midterm Exam", type: "exam", dueDate: isoDaysFromToday(9), weight: "25%", sourceFile: DEMO_FILE_NAMES[0] },
+    events: ([
+      { id: "e1", course: COURSE, title: "Problem Set 3: Hash Tables", type: "assignment", dueDate: isoDaysFromToday(2), weight: "5%", sourceFile: DEMO_FILE_NAMES[0] },
+      { id: "e2", course: COURSE, title: "Midterm Exam", type: "exam", dueDate: isoDaysFromToday(6), weight: "25%", sourceFile: DEMO_FILE_NAMES[0] },
       { id: "e3", course: COURSE, title: "Lab 4: Binary Search Trees", type: "assignment", dueDate: isoDaysFromToday(13), weight: "4%", sourceFile: DEMO_FILE_NAMES[0] },
       { id: "e4", course: COURSE, title: "Project Milestone 2", type: "project", dueDate: isoDaysFromToday(20), weight: "10%", sourceFile: DEMO_FILE_NAMES[0] },
+      { id: "e6", course: "MATH 221 · Linear Algebra", title: "Problem Set 5: Eigenvalues", type: "assignment", dueDate: isoDaysFromToday(3), weight: "5%" },
+      { id: "e7", course: "MATH 221 · Linear Algebra", title: "Chapter Quiz", type: "quiz", dueDate: isoDaysFromToday(8) },
+      { id: "e8", course: "ENG 210 · Academic Writing", title: "Research Proposal", type: "assignment", dueDate: isoDaysFromToday(5), weight: "10%" },
+      { id: "e9", course: "ENG 210 · Academic Writing", title: "Argument Presentation", type: "presentation", dueDate: isoDaysFromToday(12), weight: "15%" },
+      { id: "e10", course: "ENG 210 · Academic Writing", title: "Annotated Bibliography", type: "assignment", dueDate: isoDaysFromToday(-2), weight: "5%" },
       { id: "e5", course: COURSE, title: "Final Exam", type: "exam", dueDate: isoDaysFromToday(52), weight: "35%", sourceFile: DEMO_FILE_NAMES[0] },
-    ],
+    ] satisfies AcademicEvent[]).sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
   };
 }
 

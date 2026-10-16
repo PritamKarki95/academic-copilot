@@ -1,6 +1,8 @@
 # Academic Copilot — Frontend
 
-One-page Next.js demo: upload a syllabus + notes → see deadlines → run the agent → read the study guide → take the quiz.
+Next.js frontend: upload a syllabus + notes → see deadlines → run the agent → read the study guide → take the quiz.
+
+The dashboard includes Overview, Courses, Deadlines, Study Guides, and Practice Quizzes. Navigation uses URL hashes and preserves the active session, including quiz answers. Courses and alerts are derived from the events returned by the backend. Past-due events are not assumed to be completed.
 
 ## Run it
 
@@ -10,9 +12,12 @@ cp .env.example .env.local   # already done if .env.local exists
 npm run dev                  # http://localhost:3000
 ```
 
+On Windows PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`. To create the environment file on Windows, use `Copy-Item .env.example .env.local` only if `.env.local` does not already exist.
+
 **Demo vs Live**
 - Use the **Live / Demo** toggle in the header. Switching resets the page.
 - **Demo** uses built-in sample data. It's labeled everywhere (yellow banner + "Sample data" badges). No backend is called.
+- Switching to Demo immediately loads three sample courses, ten events (including two exams), a sample guide, a five-question quiz, and deadline alerts. The simulated upload and agent actions are explicitly labeled; selected PDFs are not processed in Demo.
 - **Live** calls the backend at `NEXT_PUBLIC_API_BASE_URL`. If a request fails you see the real error with a Retry button. It never falls back to sample data.
 - To start in Demo by default, set `NEXT_PUBLIC_DEMO_MODE=true` in `.env.local` and restart.
 
@@ -39,7 +44,7 @@ Multipart form, field name `files` (repeated once per PDF).
   ]
 }
 ```
-`type` is one of `exam | assignment | quiz | project | other`. `session_id`, `id`, `weight` are optional.
+`type` is one of `exam | assignment | quiz | project | presentation | other`. `session_id`, `id`, `weight` are optional. Invalid or missing dates are excluded from the dashboard.
 
 ### `POST /agent/run`
 Request body (JSON):
@@ -67,6 +72,8 @@ Response:
 ```
 `quiz` is optional. If it's missing, the frontend calls `/quizzes/generate`.
 
+The guide adapter also accepts a Markdown string or an object with `content`/`markdown` and optional `exam_date`. The viewer supports headings, lists, bold text, inline code, and fenced code blocks. HTML is displayed as text. Questions without valid, supplied correct answers are excluded; the frontend never invents an answer.
+
 ### `POST /quizzes/generate` (optional)
 Request: `{ "session_id", "events", "study_guide", "num_questions": 5 }` → Response: `{ "quiz": { ...same shape as above } }`
 
@@ -77,12 +84,37 @@ All backend details live in **`src/lib/api.ts`**: base URL, endpoint paths, uplo
 ## Files
 
 ```
-src/app/page.tsx              page + all state (upload → agent → quiz)
+src/app/page.tsx              dashboard views + session state (upload → agent → quiz)
 src/lib/api.ts                API adapter (edit this to match the backend)
+src/lib/service.ts            shared Live/Demo service interface
 src/lib/demo-data.ts          Demo mode sample data
+src/lib/dates.ts              strict local calendar date handling
+src/lib/quiz.ts               quiz scoring
 src/lib/types.ts              shared types
-src/components/*              Header, Upload, Deadlines, Agent, StudyGuide, Quiz, ui
+src/components/*              Dashboard, Header, Upload, Deadlines, Agent, StudyGuide, Quiz, ui
+tests/frontend.test.mjs       adapter, service, date, and scoring checks
 mock-backend/server.mjs       stand-in backend for testing Live mode
 ```
 
-Note on the agent steps: the five steps are a visual overview of the workflow. In Live mode they cycle while the request is pending, and they only turn green after the backend actually responds.
+Note on the agent steps: the five steps are an illustrative workflow, not live backend telemetry. Only study-material outputs are marked complete after a response; earlier steps remain illustrative. Agent errors do not identify an internal failed step because the API does not report one.
+
+## Verify and hand off
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+The automated checks cover response variants, invalid dates, multipart uploads, request shapes, backend/network errors, missing quiz answers, demo isolation, and scoring. They use intercepted fetch responses, not the teammate's real AI backend.
+
+Before the demo, run through these browser checks:
+
+1. Switch to Demo; inspect Courses, filter Deadlines, and open the notification bell.
+2. Simulate document analysis, run the agent, and open the generated guide.
+3. Choose Practice this material; select answers, use Previous/Next, submit, review feedback, and retake.
+4. Check a narrow mobile viewport and a desktop viewport.
+5. Switch to Live, upload real PDFs, and repeat with the teammate's server.
+
+Confirm the teammate's URL, CORS origin, multipart `files` field, optional session ID, and response shapes above. This frontend uses only the agreed POST endpoints; provisional `GET /events` and `GET /guides/{id}` are not called. Data remains in memory and resets on a full page reload. Real PDF extraction and AI generation must be verified together when the backend is available.

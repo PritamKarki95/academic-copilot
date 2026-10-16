@@ -23,7 +23,7 @@ export const Section = forwardRef<HTMLElement, SectionProps>(function Section(
   return (
     <section
       ref={ref}
-      className="animate-fade-up scroll-mt-24 rounded-2xl border border-zinc-200/80 bg-white/90 shadow-[0_1px_2px_rgba(15,16,32,0.04),0_8px_24px_-12px_rgba(15,16,32,0.08)] backdrop-blur-sm"
+      className="glass-panel animate-fade-up scroll-mt-24 rounded-2xl border border-zinc-200/80 bg-white/90 shadow-[0_1px_2px_rgba(15,16,32,0.04),0_8px_24px_-12px_rgba(15,16,32,0.08)] backdrop-blur-sm"
     >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4 sm:px-6">
         <div className="flex items-start gap-3">
@@ -79,7 +79,7 @@ export function ErrorBanner({ message, detail, onRetry }: { message: string; det
 }
 
 export const primaryButton =
-  "group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-indigo-500 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_6px_16px_-6px_rgba(99,102,241,0.7)] transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100";
+  "glass-primary group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-indigo-500 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_6px_16px_-6px_rgba(99,102,241,0.7)] transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100";
 
 export const secondaryButton =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
+  "glass-secondary inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";

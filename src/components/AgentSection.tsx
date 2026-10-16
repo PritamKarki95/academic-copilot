@@ -57,7 +57,7 @@ export const AgentSection = forwardRef<HTMLElement, Props>(function AgentSection
       aside={statusPill}
     >
       {phase === "idle" ? (
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-6 text-white sm:p-8">
+        <div className="glass-feature relative overflow-hidden rounded-xl p-6 sm:p-8">
           <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-white/10 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-20 left-10 size-48 rounded-full bg-fuchsia-300/20 blur-2xl" />
           <div className="relative flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -69,13 +69,13 @@ export const AgentSection = forwardRef<HTMLElement, Props>(function AgentSection
               <h3 className="mt-3 text-xl font-semibold tracking-tight">
                 {focusLabel ? `Get ready for your ${focusLabel}` : "Build your study plan"}
               </h3>
-              <p className="mt-1 max-w-md text-sm text-white/80">
+              <p className="mt-1 max-w-md text-sm text-slate-600">
                 The agent reads your materials, finds what matters for your next exam, and writes a study guide plus a practice quiz.
               </p>
             </div>
             <button
               onClick={onRun}
-              className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-indigo-700 shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98]"
+              className="glass-primary group inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-indigo-700 shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98]"
             >
               <Sparkles className="size-4 transition group-hover:rotate-12" />
               Run Academic Agent
@@ -89,8 +89,10 @@ export const AgentSection = forwardRef<HTMLElement, Props>(function AgentSection
               const state =
                 failedStep === i && phase !== "running"
                   ? "failed"
-                  : phase === "done"
+                  : phase === "done" && i >= 3
                     ? "complete"
+                    : phase === "done"
+                      ? "passed"
                     : phase === "error" && i > (failedStep ?? activeStep)
                       ? "pending"
                       : i < activeStep
@@ -157,9 +159,10 @@ export const AgentSection = forwardRef<HTMLElement, Props>(function AgentSection
             <p className="mt-3 text-[11px] text-zinc-400">
               {demoMode
                 ? "Demo mode: this run is simulated with sample data."
-                : "Workflow overview. Results appear only after the agent responds."}
+                : "Illustrative workflow, not live step telemetry. Results appear after the backend responds."}
             </p>
           )}
+          {phase === "done" && <p className="mt-3 text-[11px] text-zinc-400">{demoMode ? "Simulated results from sample data." : "Study materials received. Earlier workflow steps are illustrative; the API does not report individual step status."}</p>}
           {error && (
             <div className="mt-4">
               <ErrorBanner message={error.message} detail={error.detail} onRetry={onRun} />

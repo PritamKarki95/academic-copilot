@@ -9,6 +9,7 @@ const TYPE_STYLE: Record<EventType, { label: string; icon: typeof BookOpen; cls:
   assignment: { label: "Assignment", icon: ClipboardList, cls: "bg-sky-50 text-sky-700 ring-sky-200" },
   quiz: { label: "Quiz", icon: FileQuestion, cls: "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-200" },
   project: { label: "Project", icon: FolderKanban, cls: "bg-teal-50 text-teal-700 ring-teal-200" },
+  presentation: { label: "Presentation", icon: BookOpen, cls: "bg-orange-50 text-orange-700 ring-orange-200" },
   other: { label: "Deadline", icon: BookOpen, cls: "bg-zinc-100 text-zinc-700 ring-zinc-200" },
 };
 
@@ -66,7 +67,7 @@ export const DeadlinesSection = forwardRef<HTMLElement, Props>(function Deadline
                   key={e.id}
                   style={{ animationDelay: `${i * 70}ms` }}
                   className={cx(
-                    "animate-fade-up relative overflow-hidden rounded-xl border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md",
+                    "glass-inset animate-fade-up relative overflow-hidden rounded-xl border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md",
                     isFocus ? "border-violet-300 ring-2 ring-violet-100" : "border-zinc-200",
                     days !== null && days < 0 && "opacity-60",
                   )}
@@ -105,7 +106,7 @@ export const DeadlinesSection = forwardRef<HTMLElement, Props>(function Deadline
 
 function Stat({ value, label }: { value: number | string; label: string }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/80 px-3 py-2.5">
+    <div className="glass-inset rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/80 px-3 py-2.5">
       <p className="text-xl font-semibold tabular-nums tracking-tight text-zinc-900">{value}</p>
       <p className="text-[11px] text-zinc-500">{label}</p>
     </div>

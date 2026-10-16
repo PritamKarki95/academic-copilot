@@ -2,6 +2,8 @@ import { BookOpen, Lightbulb, Target } from "lucide-react";
 import { forwardRef } from "react";
 import type { StudyGuide } from "@/lib/types";
 import { SampleBadge, Section } from "./ui";
+import { GuideMarkdown } from "./GuideMarkdown";
+import { formatDueDate } from "@/lib/dates";
 
 export const StudyGuideSection = forwardRef<HTMLElement, { guide: StudyGuide; demoMode: boolean }>(
   function StudyGuideSection({ guide, demoMode }, ref) {
@@ -14,8 +16,10 @@ export const StudyGuideSection = forwardRef<HTMLElement, { guide: StudyGuide; de
         subtitle={guide.course ? `${guide.title} · ${guide.course}` : guide.title}
         aside={demoMode ? <SampleBadge /> : null}
       >
+        {guide.examDate && <p className="mb-4 text-xs font-medium text-indigo-600">Exam: {formatDueDate(guide.examDate)}</p>}
+        {guide.content && <GuideMarkdown content={guide.content} />}
         {(guide.summary || guide.focus) && (
-          <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 to-violet-50/60 p-4">
+          <div className="glass-feature rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 to-violet-50/60 p-4">
             {guide.focus && (
               <p className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-indigo-600">
                 <Target className="size-3.5" />
@@ -32,7 +36,7 @@ export const StudyGuideSection = forwardRef<HTMLElement, { guide: StudyGuide; de
               <div
                 key={s.heading + i}
                 style={{ animationDelay: `${i * 80}ms` }}
-                className="animate-fade-up rounded-xl border border-zinc-200 bg-white p-4"
+                className="glass-inset animate-fade-up rounded-xl border border-zinc-200 bg-white p-4"
               >
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
                   <span className="flex size-5 items-center justify-center rounded-md bg-zinc-900 text-[11px] font-semibold text-white">
@@ -56,7 +60,7 @@ export const StudyGuideSection = forwardRef<HTMLElement, { guide: StudyGuide; de
         )}
 
         {guide.keyTerms.length > 0 && (
-          <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+          <div className="glass-inset mt-4 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-900">
               <Lightbulb className="size-4 text-amber-500" />
               Key terms

@@ -19,6 +19,7 @@ import type {
   StudyGuide,
   UploadResult,
 } from "./types";
+import { parseDueDate } from "./dates";
 
 export const API_CONFIG = {
   baseUrl: (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/+$/, ""),
@@ -163,7 +164,7 @@ function mapEvent(e: unknown, i: number): AcademicEvent | null {
   if (!isObj(e)) return null;
   const title = str(e.title) || str(e.name) || str(e.event) || str(e.assignment);
   const dueDate = str(e.due_date) || str(e.dueDate) || str(e.date) || str(e.deadline) || str(e.due);
-  if (!title || !dueDate) return null;
+  if (!title || !dueDate || !parseDueDate(dueDate)) return null;
   return {
     id: str(e.id) || `evt-${i}`,
     title,
@@ -179,7 +180,8 @@ function mapEventType(s: string): EventType {
   const v = s.toLowerCase();
   if (/(exam|midterm|final|test)/.test(v)) return "exam";
   if (/quiz/.test(v)) return "quiz";
-  if (/(project|milestone|presentation)/.test(v)) return "project";
+  if (/presentation/.test(v)) return "presentation";
+  if (/(project|milestone)/.test(v)) return "project";
   if (/(assign|homework|hw|problem set|pset|lab|essay|paper|report)/.test(v)) return "assignment";
   return "other";
 }
@@ -199,7 +201,7 @@ export function mapAgentResponse(raw: unknown): AgentResult {
 function mapStudyGuide(g: unknown): StudyGuide | null {
   // A plain string guide (e.g. markdown) is still shown, as a single section.
   if (typeof g === "string" && g.trim()) {
-    return { title: "Study Guide", summary: "", sections: [{ heading: "Overview", points: splitLines(g) }], keyTerms: [] };
+    return { title: "Study Guide", content: g, summary: "", sections: [], keyTerms: [] };
   }
   if (!isObj(g)) return null;
 
@@ -232,13 +234,16 @@ function mapStudyGuide(g: unknown): StudyGuide | null {
     : [];
 
   const summary = str(g.summary) || str(g.overview) || str(g.description);
-  if (!sections.length && !summary) return null;
+  const content = str(g.content) || str(g.markdown);
+  if (!sections.length && !summary && !content) return null;
 
   return {
     title: str(g.title) || "Study Guide",
     course: str(g.course) || undefined,
     focus: str(g.focus) || str(g.focus_event) || str(g.exam) || undefined,
     summary,
+    content: content || undefined,
+    examDate: parseDueDate(str(g.exam_date)) ? str(g.exam_date) : undefined,
     sections,
     keyTerms,
   };
@@ -260,7 +265,7 @@ function mapQuiz(q: unknown): Quiz | null {
       const correctIndex = resolveCorrectIndex(item, options);
       if (correctIndex < 0) return null;
       return {
-        id: str(item.id) || `q${i + 1}`,
+        id: `q${i + 1}`,
         question,
         options,
         correctIndex,
@@ -276,7 +281,7 @@ function mapQuiz(q: unknown): Quiz | null {
 /** Accepts numeric index, letter ("B"), or the answer text itself. */
 function resolveCorrectIndex(item: Record<string, unknown>, options: string[]): number {
   const raw = item.correct_index ?? item.correctIndex ?? item.answer_index ?? item.correct_answer ?? item.answer ?? item.correct;
-  if (typeof raw === "number" && raw >= 0 && raw < options.length) return raw;
+  if (typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw < options.length) return raw;
   if (typeof raw === "string") {
     const s = raw.trim();
     if (/^\d+$/.test(s) && +s < options.length) return +s;
